@@ -1,0 +1,88 @@
+version: '3'
+
+services:
+  db:
+    container_name: cloud_backend_db
+    image: "mysql:8.0.33"
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - cloud_db_data:/var/lib/mysql
+    command: ["--default-authentication-plugin=mysql_native_password"]
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 30
+    
+  flyway:
+    image: "flyway/flyway:9.19.1-alpine"
+    volumes:
+      - ./DocDatabase/sql:/flyway/sql
+    command: -url=jdbc:mysql://cloud_backend_db/docSystem -user=${MYSQL_USER} -password=${MYSQL_PASSWORD} migrate
+    depends_on:
+      db:
+        condition: service_healthy
+  
+  auth_api:
+    container_name: cloud_backend_API_auth
+    build: ./DocAuthAPI
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - cloud_AuthAPI_db:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+    
+  manage_api:
+    container_name: cloud_backend_API_manage
+    build: ./DocManageAPI
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - cloud_ManageAPI_db:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+
+  storage_api:
+    container_name: cloud_backend_API_storage
+    build: ./DocStorageAPI
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - cloud_StorageAPI_db:/app/storage
+      - cloud_storage_files:/files
+    depends_on:
+      db:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+  
+  gateway:
+    container_name: cloud_backend_gateway
+    build: ./DocGateway
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - auth_api
+      - manage_api
+      - storage_api
+
+volumes:
+  cloud_db_data:
+  cloud_AuthAPI_db:
+  cloud_ManageAPI_db:
+  cloud_StorageAPI_db:
+  cloud_storage_files:

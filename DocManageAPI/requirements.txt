@@ -1,0 +1,6 @@
+Django==4.2.1
+djangorestframework==3.14.0
+djangorestframework_simplejwt==5.2.2
+PyMySQL==1.0.3
+cryptography==40.0.2
+drf-yasg==1.21.5
